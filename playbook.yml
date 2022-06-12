@@ -1,0 +1,82 @@
+-
+    name: Deploy ecommerce app from GITHUB repo 'kodekloudhub/learning-app-ecommerce'
+    hosts: aws-ec2
+    become: yes
+    roles:
+        - ecommerce-roles
+    tasks:
+        -   
+            name: 'Install packages'
+            yum:
+                name: '{{item}}'
+                state: present
+            loop: '{{services_d}}'
+        -
+            name: 'Start and enable services'
+            service:
+                name: '{{item}}'
+                state: started
+                enabled: yes
+            loop: '{{services}}'
+        -
+            name: 'Configure firewall to allow ports'
+            firewalld:
+                port: '{{item}}'
+                permanent: yes
+                zone: public
+                state: enabled
+            loop: '{{ports}}'
+        -
+            name: 'Reload/refresh firewall'
+            shell: firewall-cmd --reload
+################################################################################
+        -
+            name: 'Create ecomdb database'
+            mysql_db:
+                name: ecomdb
+                state: present
+        -
+            name: 'Create {{ansible_user}} user and paskey. Also provide all privilege all access the database'
+            mysql_user:
+                name: '{{ansible_user}}'
+                password: ecompassword
+                priv: '*.*:ALL'
+                state: present
+        -
+            name: CMD MariaDB >> 'FLUSH PRIVILEGES';
+            command: 'mysql -ne "{{ item }}"'
+            with_items:
+                - FLUSH PRIVILEGES
+            changed_when: False
+        -
+            name: copy file db-load-script.sql to host machine
+            copy:
+                src: /home/ubuntu/environment/ecommerce-app/db-load-script.sql
+                dest: /home/ec2-user/db-load-script.sql
+        -
+            name: run a script mysql < db-load-script.sql
+            shell: mysql < /home/ec2-user/db-load-script.sql
+        -
+            name: Clone kodekloudhub HITHUB repo
+            git:
+                repo: 'https://github.com/kodekloudhub/learning-app-ecommerce.git'
+                dest: /var/www/html/
+                force: yes
+        -
+            name: Change index.html to index.php 
+            replace:
+                path: /etc/httpd/conf/httpd.conf
+                regexp: 'index.html'
+                replace: 'index.php'
+        -
+            name: 172.20.1.101 to localhost
+            replace:
+                path: /var/www/html/index.php
+                regexp: '172.20.1.101'
+                replace: localhost
+        -
+            name: ecomuser to '{{ansible_user}}'
+            replace:
+                path: /var/www/html/index.php
+                regexp: 'ecomuser'
+                replace: '{{ansible_user}}'

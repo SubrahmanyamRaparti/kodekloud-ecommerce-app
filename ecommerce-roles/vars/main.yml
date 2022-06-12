@@ -1,0 +1,17 @@
+---
+# vars file for ecommerce-roles
+services_d:
+    - firewalld
+    - mariadb-server
+    - MySQL-python
+    - httpd
+    - php
+    - php-mysql
+    - git
+services:
+    - firewalld
+    - mariadb
+    - httpd
+ports:
+    - 3306/tcp
+    - 80/tcp
